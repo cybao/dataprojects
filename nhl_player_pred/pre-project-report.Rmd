@@ -1,0 +1,99 @@
+---
+title: "Forecasting NHL player performance"
+author: "C. Bao"
+date: "11/01/2015"
+output: html_document
+---
+# Introduction
+The National Hockey League (NHL) is one of the premier professional hockey leagues in the world. Currently, there are 30 teams in NHL with average value of $490 million. Players are the most important assests of a hockey team. Being able to predict the performance of a player based on his previous season(s) and the statistics of similar players is not only important for the teams when they decide on multi-million dollar contracts, but also important for fans who participate in the fantasy hockey leagues and private hockey pools. In this project, I plan to build a statistical model to forecast the performance of NHL players given past hockey statistics.
+
+# Sources of Data
+The data used for this document comes from Hockey Abstract (http://www.hockeyabstract.com/testimonials). It contains simple player statistics from 1967 to 2014 and advanced statistics from 2012 to 2015. For more completed and thorough studies in the future there are other sources of data available: Hockey database (http://www.opensourcesports.com/hockey/) contains more game oriented data dates back to the early 20th century. Wikipedia (https://en.wikipedia.org/wiki/Main_Page) contains player biographical information (height, weight, entry draft round and overall, etc.) which could be scraped as well.
+
+# Data Pre-processing
+Since there are rules changes after the 2004-2005 season lockout which affects the player statistics, for this preliminary study I only use data starting the 2005-2006 season in the simple hockey statistics data set. I also group the left wing (LW) and right wing (RW) positions to one wing man (W) group.
+```{r,cache=TRUE,message=FALSE,warning=FALSE}
+library(dplyr)
+library(gdata)
+library(ggplot2)
+data <- read.xls("source1/nhl_data_1967-2014.xls")
+data$position <- data$Pos
+levels(data$position) <- c("C","D","W","W")
+data$season.year <- as.numeric(substr(as.character(data$Season),1,4))
+post2004 <- filter(data,season.year > 2004)
+```
+
+For the advanced player statistics, I take the 2013-2014 season and 2014-2015 season data and cross reference them by player names. Only players which played more than 20 games in both seaons are included in this study. There are more detailed position descriptions of players in these datasets but for the purpose of this preliminary study I group them into forwards(F) which includes any combination of center(C),left wing(LW) and right wing(RW), defenseman(D) and switch(S) which includes the few cases where player played as both forward and defenseman during the season.
+```{r,cache=TRUE,message=FALSE,warning=FALSE}
+data2013 <- read.xls("source1/nhl_player_2013-14.xls")
+data2014 <- read.xls("source1/nhl_player_2014-15.xls")
+data2013$Name <- paste(data2013$First.Name,data2013$Last.Name)
+data2014$Name <- paste(data2014$First.Name,data2014$Last.Name)
+crossdata <- merge(data2013,data2014,by.x="Name",by.y="Name")
+crossdata$position <- crossdata$Pos.x
+levels(crossdata$position) <- c("F","S","F","F","F","F","D","F","F","F","S","F","F","F","F","F","S","F","F")
+regularplayer <- filter(crossdata,GP.x>=20,GP.y>=20)
+```
+
+
+# Exploratory Data Analysis
+## Player performance as a function of age
+As in many other professional team sports, it takes time for the young players who just enter the league to learn the system of the game. So the expectation of the performance of rookie players and veteran players are different. The first preliminary question I want to address here is the dependence of player performance as a function of their age using the simple statistics data since 2005.
+
+First let's take a look at the distribution of player age breaking down by position. This is the combined distribution of all seasons so players who played more than one season contribute to multiple bins.
+
+```{r,cache=TRUE,message=FALSE,warning=FALSE}
+p2 <- ggplot(post2004,aes(Age))
+p2 <- p2 + geom_histogram(binwidth=1,col="blue",fill="blue",alpha=.2)
+p2 <- p2 + facet_grid(. ~ position)
+p2
+```
+
+As we can see from the histogram many NHL players enter the leagure in their low 20s and players above 40 years old are rare in the league. To get better statistics we only select players below 40 years old in this study. As a first approximation, we use total number of points (PTS) per season which is the sum of goals and assists as an indication of player performance.
+
+```{r,cache=TRUE,message=TRUE,warning=TRUE,fig.width=14,fig.height=6}
+post2004below40 <- filter(post2004,Age <=40)
+
+p1 <- ggplot(post2004below40,aes(factor(Age),PTS))
+p1 <- p1 + geom_boxplot()
+p1 <- p1 + facet_grid(.~position)
+p1 <- p1 + xlab("Player Age")+ylab("Points in a season")
+p1 <- p1 + ggtitle("NHL player performance by position")
+p1 <- p1 +theme(text = element_text(size=14),plot.title=element_text(size=16),axis.text=element_text(size=11))
+p1
+```
+
+Based on the plot above, players in all positions mature in their late 20s. There is probably a bias toward more productive players since less performing players usually leave the league before they reach their late 20s. It is obvious there is a difference between the overall level of points between defensemen and forwards (C and W). This is expected: the primary responsibility of defensemen is not producing offense which is reflected in PTS. 
+
+## Correlation between player performance in consecutive seasons
+Next question I want to investigate is whether there is any correlation between a player's performance in consecutive seasons. I use the collection of players who played at least 20 games in each of the 2013-2014 and 2014-2015 season. To factor in the effect of missed game due to injuries and other reasons, I check the correlation between points per game played for each player.
+
+```{r,cache=TRUE,message=TRUE,warning=TRUE,fig.width=14,fig.height=6}
+p <- qplot(PTS.x/GP.x,PTS.y/GP.y,data=regularplayer,color=position,size=I(5),alpha=I(0.7))
+p <- p+geom_abline(intercept=0,slope=1)
+p <- p+xlab("Points per game in 2013-2014 season")
+p <- p+ylab("Points per game in 2014-2015 season")
+p <- p+theme(text = element_text(size=16),axis.text=element_text(size=14))
+p
+```
+
+From the plot we can see there is a strong correlation between points per game during consecutive seasons. There is some spread around the correlation line nevertheless. For players above the line, they are overachieving in the 2014-2015 season compared to the 2013-2014 season and vice versa. Ultimately we want to identify players whose high/low performance during a season is just a statiscial abnormaly so their salary is calculated properly or they get selected at the proper spot in a fantasy league.
+
+Finally, just to emphasize the difference between career trajectory of players, I select seven players who has played more than 5 years in the league since 2005 and has had good performance (points per game player more than 1) in at least one of the seaons. Their points in season is plotted as a function of the season, the 2012-2013 season data is not included due to a partial year lock out. The size of the dot is scaled to the points per game played to capture the information related to missing games.
+
+```{r,cache=TRUE,fig.width=14}
+post2004$Name <- paste(post2004$First.Name,post2004$Last.Name)
+byplayer <- group_by(post2004,Name)
+playerstat <- summarize(byplayer,maxpts=max(PTS),nyear=length(Season),entryage=min(Age),mingame=min(GP),maxptspgp=max(PTS/GP),diffptspgp=max(PTS/GP)-min(PTS/GP))
+selectedplayers <- filter(playerstat,maxptspgp>=1.,maxptspgp<1.2,nyear>5,entryage <=22,mingame>20,diffptspgp>0.5)
+selecteddata <- filter(post2004,Name %in% selectedplayers$Name, season.year!=2012)
+
+p2 <- ggplot(selecteddata,aes(season.year,PTS))
+p2 <- p2 + geom_point(aes(color=Name,size=PTS/GP))+geom_line(aes(color=Name))
+p2 <- p2 + facet_grid(.~Name)
+p2 <- p2 + scale_size(range=c(1,6))
+p2 <- p2 + geom_hline(aes(yintercept=60))
+p2
+```
+
+Although all these players have good performance early in their career, not all players can sustain this performance past their entry level contract. For this project I plan to develop a model to pick out the players who can deliver reliable performance in the league.
