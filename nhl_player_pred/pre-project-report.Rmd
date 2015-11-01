@@ -5,13 +5,14 @@ date: "11/01/2015"
 output: html_document
 ---
 # Introduction
-The National Hockey League (NHL) is one of the premier professional hockey leagues in the world. Currently, there are 30 teams in NHL with average value of $490 million. Players are the most important assests of a hockey team. Being able to predict the performance of a player based on his previous season(s) and the statistics of similar players is not only important for the teams when they decide on multi-million dollar contracts, but also important for fans who participate in the fantasy hockey leagues and private hockey pools. In this project, I plan to build a statistical model to forecast the performance of NHL players given past hockey statistics.
+The National Hockey League (NHL) is one of the premier professional hockey leagues in the world. Currently, there are 30 teams in NHL with average value of $490 million. Players are the most important assests of a hockey team. Being able to predict the performance of a player based on his previous season(s) and the statistics of similar players is not only important for the teams when they decide on multi-million dollar contracts, but also important for millions of fans who participate in the fantasy hockey leagues and private hockey pools. In this project, I plan to build a statistical model to forecast the performance of NHL players given past hockey statistics.
 
 # Sources of Data
-The data used for this document comes from Hockey Abstract (http://www.hockeyabstract.com/testimonials). It contains simple player statistics from 1967 to 2014 and advanced statistics from 2012 to 2015. For more completed and thorough studies in the future there are other sources of data available: Hockey database (http://www.opensourcesports.com/hockey/) contains more game oriented data dates back to the early 20th century. Wikipedia (https://en.wikipedia.org/wiki/Main_Page) contains player biographical information (height, weight, entry draft round and overall, etc.) which could be scraped as well.
+The data used for this document comes from Hockey Abstract (http://www.hockeyabstract.com/testimonials). It contains simple player statistics from 1967 to 2014 and advanced statistics from 2012 to 2015. For more completed and thorough studies in the future there are other sources of data available: Hockey database (http://www.opensourcesports.com/hockey/) contains more game oriented data dates back to the early 20th century. Wikipedia (https://en.wikipedia.org/wiki/Main_Page) contains player biographical information (height, weight, entry draft round and overall, etc.) which could be scraped. Game statistics can be found on the NHL website (http://www.nhl.com/ice/scores.htm?#navid=nav-scr-main) and player contract information can be found on various websites (http://nhlnumbers.com/, http://capfriendly.com/, https://www.hockeyscap.com/).
 
 # Data Pre-processing
-Since there are rules changes after the 2004-2005 season lockout which affects the player statistics, for this preliminary study I only use data starting the 2005-2006 season in the simple hockey statistics data set. I also group the left wing (LW) and right wing (RW) positions to one wing man (W) group.
+As the equipment technology and player capability develops throughout the time, the same sport has different characteristics in different eras. After the 2004-2005 NHL season lockout, the changes of rules and regulations result in new approach to the games where player speed is more emphasized than player size. Such changes give rise to different player statistics before and after the lockout. To predict the performance of current and future players in the NHL I only use data starting the 2005-2006 season in the simple hockey statistics data set for this preliminary study. I also group the left wing (LW) and right wing (RW) positions to one wing man (W) group due to symmetry and lack of statistical difference.
+
 ```{r,cache=TRUE,message=FALSE,warning=FALSE}
 library(dplyr)
 library(gdata)
@@ -38,7 +39,8 @@ regularplayer <- filter(crossdata,GP.x>=20,GP.y>=20)
 
 # Exploratory Data Analysis
 ## Player performance as a function of age
-As in many other professional team sports, it takes time for the young players who just enter the league to learn the system of the game. So the expectation of the performance of rookie players and veteran players are different. The first preliminary question I want to address here is the dependence of player performance as a function of their age using the simple statistics data since 2005.
+As in many other professional team sports, it takes time for young players who just enter the league to  adapt to playing systems, to gain physical maturity and to adapt to the speed and caliber of the game.
+So the expectation of the performance of rookie players and veteran players are different. The first preliminary question I want to address here is the dependence of player performance as a function of their age using the simple statistics data since 2005.
 
 First let's take a look at the distribution of player age breaking down by position. This is the combined distribution of all seasons so players who played more than one season contribute to multiple bins.
 
@@ -63,7 +65,8 @@ p1 <- p1 +theme(text = element_text(size=14),plot.title=element_text(size=16),ax
 p1
 ```
 
-Based on the plot above, players in all positions mature in their late 20s. There is probably a bias toward more productive players since less performing players usually leave the league before they reach their late 20s. It is obvious there is a difference between the overall level of points between defensemen and forwards (C and W). This is expected: the primary responsibility of defensemen is not producing offense which is reflected in PTS. 
+The decrease of player performance between 18 to 20 years of age comes from the fact that players enter the NHL at such young age are typically exceptional players which bias the statistics towards the higher value.
+Based on the plot above, players in all positions mature in their late 20s and early 30s. There is probably a bias toward more productive players since less performing players usually leave the league before they reach their late 20s. It is obvious there is a difference between the overall level of points between defensemen and forwards (C and W). This is expected: the primary responsibility of defensemen is not producing offense which is reflected in PTS. 
 
 ## Correlation between player performance in consecutive seasons
 Next question I want to investigate is whether there is any correlation between a player's performance in consecutive seasons. I use the collection of players who played at least 20 games in each of the 2013-2014 and 2014-2015 season. To factor in the effect of missed game due to injuries and other reasons, I check the correlation between points per game played for each player.
@@ -77,9 +80,9 @@ p <- p+theme(text = element_text(size=16),axis.text=element_text(size=14))
 p
 ```
 
-From the plot we can see there is a strong correlation between points per game during consecutive seasons. There is some spread around the correlation line nevertheless. For players above the line, they are overachieving in the 2014-2015 season compared to the 2013-2014 season and vice versa. Ultimately we want to identify players whose high/low performance during a season is just a statiscial abnormaly so their salary is calculated properly or they get selected at the proper spot in a fantasy league.
+From the plot we can see there is a strong correlation between points per game during consecutive seasons. There is some spread around the correlation line nevertheless. For players above the line, they are overachieving in the 2014-2015 season compared to the 2013-2014 season and vice versa. This could be caused by the natural developing or declining of a player or just a fluke. Ultimately we want to identify players whose high/low performance during a season is just a statiscial abnormaly so their salary is calculated properly or they get selected at the proper spot in a fantasy league.
 
-Finally, just to emphasize the difference between career trajectory of players, I select seven players who has played more than 5 years in the league since 2005 and has had good performance (points per game player more than 1) in at least one of the seaons. Their points in season is plotted as a function of the season, the 2012-2013 season data is not included due to a partial year lock out. The size of the dot is scaled to the points per game played to capture the information related to missing games.
+Finally, just to emphasize the difference between career trajectory of players, I select seven players who has played more than 5 years in the league since 2005 and has had good performance (points per game player more than 1) in at least one of the seaons. Their points in season is plotted as a function of the season, the 2012-2013 season data is not included due to a partial year lock out. In a more thorough study the player performance in the 2012-2013 study should be properly normalized rather than ignored. The size of the dot is scaled to the points per game played to capture the information related to missing games.
 
 ```{r,cache=TRUE,fig.width=14}
 post2004$Name <- paste(post2004$First.Name,post2004$Last.Name)
@@ -96,4 +99,7 @@ p2 <- p2 + geom_hline(aes(yintercept=60))
 p2
 ```
 
-Although all these players have good performance early in their career, not all players can sustain this performance past their entry level contract. For this project I plan to develop a model to pick out the players who can deliver reliable performance in the league.
+Although all these players have good performance early in their career, not all players can sustain this performance past their entry level contract. 
+
+#Future Plans
+The accurate forecast of NHL player performance has a big impact on NHL team decisions and hockey fans' choice for their fantasy hockey league or private hockey pools. Based on the preliminary analysis I have shown there are statistical trends of player performance as they age, and correlation between player performance between consecutive seasons. For the next step of this project I plan to develop a predictive model to forecast player performance which factors in many variables such as size, age, salary, position, time on ice etc.
